@@ -34,7 +34,7 @@ the mouse.
 ## Requirements
 
 - TOTK version **1.4.1**. Other versions are refused, nothing gets patched.
-- Eden or Citron (other yuzu forks likely work).
+- Eden, Citron, Ryujinx or Ryubing (other yuzu forks likely work).
 - Linux with X11 or XWayland. Windows works under Wine, untested on real Windows.
 
 ## Usage
@@ -43,14 +43,14 @@ Download the archive for your system from the
 [releases page](https://github.com/phisch/TOTK-mouse/releases) and extract it.
 
 1. **Install the mod.** Copy the `mod/totk-mouse` folder into the emulator's mod folder
-   for TOTK. In Eden or Citron: right-click the game, then "Open Mod Data Location".
-   On Linux that is usually `~/.local/share/eden/load/0100F2C0115B6000/`.
+   for TOTK. Right-click the game, then "Open Mod Data Location" (Eden, Citron) or
+   "Open Mods Directory" (Ryujinx, Ryubing).
 2. **Start the companion** instead of the emulator. It starts the emulator with the
    game.
    - Linux: run `./totk-mouse`. The emulator has to be on your PATH (`eden`,
-     `citron`, ...).
+     `citron`, `Ryujinx`, ...).
    - Windows: put `totk-mouse.exe` next to the emulator's executable (for example
-     next to `eden.exe`) and run it.
+     next to `eden.exe` or `Ryujinx.exe`) and run it.
 
    If the emulator is somewhere else, set `emulator` in the config file
    (`~/.config/totk-mouse/config.toml`, or `%APPDATA%\totk-mouse\config.toml` on

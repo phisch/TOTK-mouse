@@ -76,6 +76,14 @@ Totals rather than deltas, so a frame the companion misses loses nothing. The
 heartbeat only counts the gameplay camera, so it stops at the title screen, in pause
 and in menus. The companion uses that to release the mouse.
 
+### Module header
+
+Nintendo's rtld checks the first instruction of every module. Only for `b +8` (or 0,
+or an ARM32 branch) does it take the MOD0 offset from +4. Otherwise it reads a pointer
+from +8. exlaunch modules started with `b entrypoint`, so rtld read garbage: Ryujinx
+faulted, Eden happened to survive. The mod's `crt0.s` now starts with `b +8`, the MOD0
+offset, then the branch to the entry point.
+
 ### exlaunch quirk
 
 exlaunch's float inline hook context is laid out `[q0..q31][x0..x29]`, the reverse of
@@ -89,6 +97,10 @@ what `InlineFloatCtx` declares. The mod reads registers at raw offsets (`RegX`).
 | Raw mouse | XI2 raw events on the root window (default), or evdev | Raw Input with `RIDEV_INPUTSINK` |
 | Cursor lock | X pointer grab confined to the emulator window | `ClipCursor` to one pixel in the window centre |
 | Window | GPUI | GPUI (needs a Windows build, see below) |
+
+The emulator window is the largest viewable window owned by the emulator's
+processes. Ownership comes from `_NET_WM_PID`, or from the X-Resource extension for
+windows without it (Ryujinx's Avalonia window).
 
 Writing another process's memory on Linux needs ptrace rights. With
 `ptrace_scope = 1` that means being its ancestor, so the companion launches the
@@ -125,11 +137,11 @@ on every mouse event froze the game within seconds.
   Eden's mouse panning confines the cursor but cannot recentre it on Wayland.
 - **Write-back** into the camera controller's eye (`owner+232`): the controller eases
   toward its own desired direction and rubber-bands back.
-- **Ryujinx**: its loader crashes in `nnrtld` reading our module's MOD0 offset, so
-  exlaunch mods built this way do not load there.
 - **GPUI on Windows from Linux**: release builds need HLSL shaders precompiled by
-  `fxc.exe`, which only exists on Windows. The Windows build is made without the
-  `ui` feature until there is a Windows CI build.
+  `fxc.exe`, which only exists on Windows. Cross-compiled Windows builds go without
+  the `ui` feature; the release's Windows build is made on a Windows CI runner.
+- **GPUI under Wine without DXVK**: Wine's own Direct3D 11 lacks what GPUI's
+  renderer needs. The companion then runs without its window.
 
 ## Porting to another game version
 
