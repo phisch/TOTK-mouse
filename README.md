@@ -79,6 +79,7 @@ See [docs/how-it-works.md](docs/how-it-works.md).
 
 ## License and credits
 
+- The companion is licensed under the GPL-3.0, see `companion/LICENSE`.
 - The mod is built on [exlaunch](https://github.com/shadowninja108/exlaunch) by
   shadowninja108 and is distributed under the GPL-2.0. See `mod/LICENSE` and
   `mod/NOTICE` for the base version and what was changed.
