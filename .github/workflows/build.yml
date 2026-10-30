@@ -17,11 +17,11 @@ jobs:
     env:
       DEVKITPRO: /opt/devkitpro
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         working-directory: mod
         run: make -j"$(nproc)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mod
           path: mod/deploy/totk-mouse
@@ -31,7 +31,7 @@ jobs:
     # The oldest supported runner, so the binary runs on older glibc too.
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -44,7 +44,7 @@ jobs:
       - name: Build
         working-directory: companion
         run: cargo build --release --locked
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: companion-linux
           path: companion/target/release/totk-mouse
@@ -54,7 +54,7 @@ jobs:
     # Built natively: GPUI precompiles its shaders with fxc.exe from the Windows SDK.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -62,7 +62,7 @@ jobs:
       - name: Build
         working-directory: companion
         run: cargo build --release --locked
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: companion-windows
           path: companion/target/release/totk-mouse.exe
@@ -75,8 +75,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: Package

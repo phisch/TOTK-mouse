@@ -24,8 +24,8 @@ include $(DEVKITPRO)/libnx/switch_rules
 export TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 ROOT_SOURCE	:=	$(TOPDIR)/source
-MODULES		:=	$(shell find $(ROOT_SOURCE) -mindepth 1 -maxdepth 1 -type d)
-SOURCES		:=	$(foreach module,$(MODULES),$(shell find $(module) -type d))
+MODULES		:=	$(sort $(shell find $(ROOT_SOURCE) -mindepth 1 -maxdepth 1 -type d))
+SOURCES		:=	$(sort $(foreach module,$(MODULES),$(shell find $(module) -type d)))
 SOURCES		:= 	$(foreach source,$(SOURCES),$(source:$(TOPDIR)/%=%)/)
 
 DATA		:=	data

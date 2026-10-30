@@ -10,6 +10,8 @@ Changes to exlaunch:
 - Makefile: output to deploy/totk-mouse/exefs as subsdk8 (TOTK Optimizer uses subsdk9).
 - config.mk: target title 0100F2C0115B6000.
 - misc/scripts/post-build.sh: main.npdm is not shipped, it would replace the game's.
+- misc/mk/common.mk: source folders are sorted, so builds do not depend on the
+  filesystem's directory order.
 - source/program/main.cpp: replaced the example with the TOTK mouse camera mod.
 
 The mod as a whole is distributed under the GPL-2.0.
