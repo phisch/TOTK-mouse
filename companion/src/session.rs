@@ -35,8 +35,9 @@ const HOLD_GRACE: Duration = Duration::from_secs(1);
 /// 1000 Hz is wasteful.
 const WRITE_EVERY: Duration = Duration::from_millis(4);
 /// How often to re-assert the grab while it should be held. XWayland drops the
-/// confinement when the window loses focus, and re-grabbing restores it.
-const REGRAB_EVERY: Duration = Duration::from_secs(1);
+/// confinement when the window loses focus, Windows drops a cursor clip on some
+/// window changes, and re-grabbing restores it.
+const REGRAB_EVERY: Duration = Duration::from_millis(250);
 
 #[derive(PartialEq, Clone, Copy, Default)]
 pub struct Status {

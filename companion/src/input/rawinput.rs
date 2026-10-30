@@ -256,11 +256,13 @@ impl super::Backend for RawInput {
     }
 
     fn set_grab(&mut self, grab: bool) -> bool {
-        let Some(hwnd) = self.target.map(|h| h as HWND) else { return false };
-        // Only confine while the emulator is in front: a clip left in place behind
-        // another window would trap the user's cursor there.
+        // Confine to whichever window is in front, as long as it belongs to the
+        // emulator. Its main window is not necessarily the one we found in attach:
+        // Ryujinx has several top-level windows. A clip left in place behind
+        // another app would trap the user's cursor there, so never clip then.
         // SAFETY: plain call.
-        let in_front = unsafe { GetForegroundWindow() } == hwnd;
+        let hwnd = unsafe { GetForegroundWindow() };
+        let in_front = !hwnd.is_null() && self.state.lock().unwrap().pids.contains(&foreground_pid());
         if !grab || !in_front {
             if self.grabbed {
                 // SAFETY: a null rect removes the clip.
@@ -273,7 +275,6 @@ impl super::Backend for RawInput {
         unsafe {
             let mut r: RECT = zeroed();
             if GetClientRect(hwnd, &mut r) == 0 {
-                self.target = None;
                 return false;
             }
             let mut c = POINT { x: (r.right - r.left) / 2, y: (r.bottom - r.top) / 2 };
