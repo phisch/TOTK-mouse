@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   mod:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container: devkitpro/devkita64
     env:
       DEVKITPRO: /opt/devkitpro
@@ -77,7 +77,7 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [mod, companion-linux, companion-windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
