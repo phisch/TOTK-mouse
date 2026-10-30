@@ -114,9 +114,25 @@ struct Companion {
     closed_by_outside: Option<&'static str>,
     /// Action waiting for a key press.
     capturing_key: Option<Action>,
-    slider: Rc<Cell<Bounds<Pixels>>>,
-    dragging: bool,
+    /// Track bounds per slider, captured during paint, for turning clicks into values.
+    slider_bounds: [Rc<Cell<Bounds<Pixels>>>; 2],
+    dragging: Option<Slider>,
 }
+
+#[derive(Clone, Copy, PartialEq)]
+enum Slider {
+    Sensitivity,
+    Interval,
+}
+
+impl Slider {
+    fn index(self) -> usize {
+        self as usize
+    }
+}
+
+const INTERVAL_MIN: u64 = 1;
+const INTERVAL_MAX: u64 = 33;
 
 fn sens_to_frac(s: f64) -> f32 {
     ((s / SENS_MIN).ln() / (SENS_MAX / SENS_MIN).ln()).clamp(0.0, 1.0) as f32
@@ -158,8 +174,8 @@ impl Companion {
             editing: None,
             closed_by_outside: None,
             capturing_key: None,
-            slider: Rc::new(Cell::new(Bounds::default())),
-            dragging: false,
+            slider_bounds: [Rc::new(Cell::new(Bounds::default())), Rc::new(Cell::new(Bounds::default()))],
+            dragging: None,
         }
     }
 
@@ -173,20 +189,59 @@ impl Companion {
         cx.notify();
     }
 
-    fn set_sens_at(&self, x: Pixels, cx: &mut Context<Self>) {
-        let b = self.slider.get();
+    fn set_slider_at(&self, slider: Slider, x: Pixels, cx: &mut Context<Self>) {
+        let b = self.slider_bounds[slider.index()].get();
         let w = f32::from(b.size.width);
         if w <= 0.0 {
             return;
         }
-        let s = frac_to_sens(f32::from(x - b.origin.x) / w);
-        self.apply(cx, |c| {
-            // Keeps the ratio between the axes.
-            let ratio = c.sensitivity_y / c.sensitivity_x;
-            let round = |v: f64| (v * 1e7).round() / 1e7;
-            c.sensitivity_x = round(s);
-            c.sensitivity_y = round((s * ratio).clamp(SENS_MIN, SENS_MAX));
-        });
+        let f = (f32::from(x - b.origin.x) / w).clamp(0.0, 1.0);
+        match slider {
+            Slider::Sensitivity => {
+                let s = frac_to_sens(f);
+                self.apply(cx, |c| {
+                    // Keeps the ratio between the axes.
+                    let ratio = c.sensitivity_y / c.sensitivity_x;
+                    let round = |v: f64| (v * 1e7).round() / 1e7;
+                    c.sensitivity_x = round(s);
+                    c.sensitivity_y = round((s * ratio).clamp(SENS_MIN, SENS_MAX));
+                });
+            }
+            Slider::Interval => {
+                let ms = INTERVAL_MIN + (f * (INTERVAL_MAX - INTERVAL_MIN) as f32).round() as u64;
+                self.apply(cx, |c| c.write_interval_ms = ms);
+            }
+        }
+    }
+
+    fn slider(&self, slider: Slider, frac: f32, cx: &mut Context<Self>) -> Stateful<Div> {
+        let bounds_cell = self.slider_bounds[slider.index()].clone();
+        div()
+            .id(("slider", slider.index()))
+            .relative()
+            .h(px(24.))
+            .w_full()
+            .cursor_pointer()
+            .child(div().absolute().top(px(10.)).left_0().right_0().h(px(4.)).rounded_full().bg(border()))
+            .child(div().absolute().top(px(10.)).left_0().h(px(4.)).w(relative(frac)).rounded_full().bg(text()))
+            .child(
+                div().absolute().top(px(1.)).left(relative(frac)).ml(px(-11.)).size(px(22.)).rounded_full()
+                    .bg(text()).border_4().border_color(bg()),
+            )
+            .child(canvas(move |b, _, _| bounds_cell.set(b), |_, _, _, _| {}).absolute().size_full())
+            .on_mouse_down(MouseButton::Left, cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                this.dragging = Some(slider);
+                this.set_slider_at(slider, ev.position.x, cx);
+            }))
+            .on_mouse_move(cx.listener(move |this, ev: &MouseMoveEvent, _, cx| {
+                if this.dragging == Some(slider) && ev.pressed_button == Some(MouseButton::Left) {
+                    this.set_slider_at(slider, ev.position.x, cx);
+                } else if ev.pressed_button.is_none() {
+                    this.dragging = None;
+                }
+            }))
+            .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _, _| this.dragging = None))
+            .on_mouse_up_out(MouseButton::Left, cx.listener(|this, _, _, _| this.dragging = None))
     }
 
     fn on_key(&mut self, ev: &KeyDownEvent, cx: &mut Context<Self>) {
@@ -392,34 +447,14 @@ impl Render for Companion {
             );
 
         // Camera.
-        let frac = sens_to_frac(cfg.sensitivity_x);
-        let bounds_cell = self.slider.clone();
-        let slider = div()
-            .id("slider")
-            .relative()
-            .h(px(24.))
-            .w_full()
-            .cursor_pointer()
-            .child(div().absolute().top(px(10.)).left_0().right_0().h(px(4.)).rounded_full().bg(border()))
-            .child(div().absolute().top(px(10.)).left_0().h(px(4.)).w(relative(frac)).rounded_full().bg(text()))
-            .child(
-                div().absolute().top(px(1.)).left(relative(frac)).ml(px(-11.)).size(px(22.)).rounded_full()
-                    .bg(text()).border_4().border_color(bg()),
-            )
-            .child(canvas(move |b, _, _| bounds_cell.set(b), |_, _, _, _| {}).absolute().size_full())
-            .on_mouse_down(MouseButton::Left, cx.listener(|this, ev: &MouseDownEvent, _, cx| {
-                this.dragging = true;
-                this.set_sens_at(ev.position.x, cx);
-            }))
-            .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
-                if this.dragging && ev.pressed_button == Some(MouseButton::Left) {
-                    this.set_sens_at(ev.position.x, cx);
-                } else {
-                    this.dragging = false;
-                }
-            }))
-            .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _, _| this.dragging = false))
-            .on_mouse_up_out(MouseButton::Left, cx.listener(|this, _, _, _| this.dragging = false));
+        let sens_slider = self.slider(Slider::Sensitivity, sens_to_frac(cfg.sensitivity_x), cx);
+        let interval = cfg.write_interval_ms.clamp(INTERVAL_MIN, INTERVAL_MAX);
+        let interval_frac = (interval - INTERVAL_MIN) as f32 / (INTERVAL_MAX - INTERVAL_MIN) as f32;
+        let interval_slider = self.slider(Slider::Interval, interval_frac, cx);
+        let value_box = |text: String| {
+            div().px_3().py_1().rounded_md().border_1().border_color(border()).bg(field())
+                .font_family(MONO).text_base().child(text)
+        };
         let camera_card = card()
             .gap_4()
             .p_8()
@@ -427,12 +462,17 @@ impl Render for Companion {
             .child(
                 div().flex().items_center().justify_between()
                     .child(div().text_lg().text_color(muted()).child("Sensitivity"))
-                    .child(
-                        div().px_3().py_1().rounded_md().border_1().border_color(border()).bg(field())
-                            .font_family(MONO).text_base().child(format!("{:.5}", cfg.sensitivity_x)),
-                    ),
+                    .child(value_box(format!("{:.5}", cfg.sensitivity_x))),
             )
-            .child(slider)
+            .child(sens_slider)
+            .child(
+                div().flex().items_center().justify_between()
+                    .child(div().text_lg().text_color(muted()).child("Update interval"))
+                    .child(value_box(format!("{interval} ms"))),
+            )
+            .child(interval_slider)
+            .child(div().text_sm().text_color(faint())
+                .child("How often mouse movement is sent to the game. Lower feels snappier, higher is lighter on the emulator."))
             .child(
                 div().flex().items_center().justify_between()
                     .child(div().text_lg().text_color(muted()).child("Invert"))
