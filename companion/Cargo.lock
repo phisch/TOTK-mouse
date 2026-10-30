@@ -5051,6 +5051,7 @@ dependencies = [
  "gpui-platform-gpui-unofficial",
  "gpui-unofficial",
  "serde",
+ "serde_json",
  "toml 0.8.23",
  "windows-sys 0.59.0",
  "x11rb",

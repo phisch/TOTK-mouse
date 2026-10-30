@@ -16,8 +16,11 @@
 
 .global __module_start
 __module_start:
-    b entrypoint
+    // Nintendo's rtld only takes the MOD0 offset from +4 when the first
+    // instruction is `b +8` (or 0). Anything else makes it read a pointer from +8.
+    b 1f
     .word __nx_mod0 - __module_start
+1:  b entrypoint
 
     .align 4
     .ascii "~~exlaunch uwu~~"

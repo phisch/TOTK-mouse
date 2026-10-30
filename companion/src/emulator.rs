@@ -5,7 +5,10 @@ use std::process::{Child, Command};
 
 /// Yuzu forks, most likely first. Each keeps its Qt config in ~/.config/<name>
 /// (%APPDATA%\<name>\config on Windows, or a `user` folder next to a portable exe).
-const KNOWN: &[&str] = &["eden", "citron", "citron-neo-nightly", "sudachi", "torzu", "suyu", "yuzu"];
+const YUZU_FORKS: &[&str] = &["eden", "citron", "citron-neo-nightly", "sudachi", "torzu", "suyu", "yuzu"];
+/// Ryujinx and its forks (Ryubing) keep a JSON config in ~/.config/Ryujinx
+/// (%APPDATA%\Ryujinx on Windows, or a `portable` folder next to the exe).
+const RYUJINX: &[&str] = &["Ryujinx", "ryujinx"];
 const EXE_SUFFIX: &str = std::env::consts::EXE_SUFFIX;
 
 const TITLE_ID: &str = "0100F2C0115B6000";
@@ -19,13 +22,46 @@ pub fn find_emulator(configured: &str) -> Option<PathBuf> {
     let own_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf));
     let path = std::env::var_os("PATH").unwrap_or_default();
     let dirs: Vec<PathBuf> = own_dir.into_iter().chain(std::env::split_paths(&path)).collect();
-    KNOWN.iter().find_map(|name| dirs.iter().map(|d| d.join(format!("{name}{EXE_SUFFIX}"))).find(|p| p.is_file()))
+    YUZU_FORKS
+        .iter()
+        .chain(RYUJINX)
+        .find_map(|name| dirs.iter().map(|d| d.join(format!("{name}{EXE_SUFFIX}"))).find(|p| p.is_file()))
 }
 
-/// The emulator's game folders, read from its Qt config.
+fn is_ryujinx(emulator: &Path) -> bool {
+    let name = emulator.file_stem().and_then(|n| n.to_str()).unwrap_or("");
+    name.eq_ignore_ascii_case("ryujinx")
+}
+
+/// The emulator's game folders, each with whether to look into subfolders.
 fn game_dirs(emulator: &Path) -> Vec<(PathBuf, bool)> {
+    if is_ryujinx(emulator) { ryujinx_game_dirs(emulator) } else { yuzu_game_dirs(emulator) }
+}
+
+/// Ryujinx scans its game folders recursively.
+fn ryujinx_game_dirs(emulator: &Path) -> Vec<(PathBuf, bool)> {
+    let mut candidates = Vec::new();
+    if let Some(dir) = emulator.parent() {
+        candidates.push(dir.join("portable").join("Config.json"));
+    }
+    #[cfg(windows)]
+    if let Some(appdata) = std::env::var_os("APPDATA") {
+        candidates.push(PathBuf::from(appdata).join("Ryujinx").join("Config.json"));
+    }
+    #[cfg(not(windows))]
+    candidates.push(PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config/Ryujinx/Config.json"));
+    let Some(json) = candidates.into_iter().find_map(|p| std::fs::read_to_string(p).ok()) else { return Vec::new() };
+    let Ok(cfg) = serde_json::from_str::<serde_json::Value>(&json) else { return Vec::new() };
+    cfg["game_dirs"]
+        .as_array()
+        .map(|dirs| dirs.iter().filter_map(|d| d.as_str()).map(|d| (PathBuf::from(d), true)).collect())
+        .unwrap_or_default()
+}
+
+/// The game folders from a yuzu fork's Qt config.
+fn yuzu_game_dirs(emulator: &Path) -> Vec<(PathBuf, bool)> {
     let name = emulator.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    let config_name = KNOWN.iter().find(|k| name.starts_with(*k)).map(|k| {
+    let config_name = YUZU_FORKS.iter().find(|k| name.starts_with(*k)).map(|k| {
         // citron-neo-nightly still uses citron's config.
         if k.starts_with("citron") { "citron" } else { k }
     });
