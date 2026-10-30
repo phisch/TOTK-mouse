@@ -18,13 +18,19 @@ jobs:
       DEVKITPRO: /opt/devkitpro
     steps:
       - uses: actions/checkout@v7
+      # Build at /mod like the README's docker command: source paths end up in the
+      # binary, so this keeps CI and local builds byte-identical.
       - name: Build
-        working-directory: mod
-        run: make -j"$(nproc)"
+        run: |
+          cp -r mod /mod
+          cd /mod
+          make -j"$(nproc)"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp -r /mod/deploy/totk-mouse "$GITHUB_WORKSPACE/out/"
       - uses: actions/upload-artifact@v7
         with:
           name: mod
-          path: mod/deploy/totk-mouse
+          path: out/totk-mouse
           if-no-files-found: error
 
   companion-linux:
