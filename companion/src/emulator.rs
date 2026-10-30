@@ -10,14 +10,16 @@ const EXE_SUFFIX: &str = std::env::consts::EXE_SUFFIX;
 
 const TITLE_ID: &str = "0100F2C0115B6000";
 
+/// The configured emulator, else one next to our own executable (portable installs,
+/// common on Windows), else one on PATH.
 pub fn find_emulator(configured: &str) -> Option<PathBuf> {
     if !configured.is_empty() {
         return Some(PathBuf::from(configured));
     }
-    let path = std::env::var_os("PATH")?;
-    KNOWN.iter().find_map(|name| {
-        std::env::split_paths(&path).map(|d| d.join(format!("{name}{EXE_SUFFIX}"))).find(|p| p.is_file())
-    })
+    let own_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf));
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let dirs: Vec<PathBuf> = own_dir.into_iter().chain(std::env::split_paths(&path)).collect();
+    KNOWN.iter().find_map(|name| dirs.iter().map(|d| d.join(format!("{name}{EXE_SUFFIX}"))).find(|p| p.is_file()))
 }
 
 /// The emulator's game folders, read from its Qt config.

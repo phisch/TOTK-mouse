@@ -1,0 +1,108 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mod:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64
+    env:
+      DEVKITPRO: /opt/devkitpro
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        working-directory: mod
+        run: make -j"$(nproc)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mod
+          path: mod/deploy/totk-mouse
+          if-no-files-found: error
+
+  companion-linux:
+    # The oldest supported runner, so the binary runs on older glibc too.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb1-dev libxcb-xkb-dev libx11-xcb-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libwayland-dev libvulkan-dev libfontconfig-dev libfreetype-dev
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: companion
+      - name: Build
+        working-directory: companion
+        run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: companion-linux
+          path: companion/target/release/totk-mouse
+          if-no-files-found: error
+
+  companion-windows:
+    # Built natively: GPUI precompiles its shaders with fxc.exe from the Windows SDK.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: companion
+      - name: Build
+        working-directory: companion
+        run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: companion-windows
+          path: companion/target/release/totk-mouse.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [mod, companion-linux, companion-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Package
+        run: |
+          set -eu
+          tag="${GITHUB_REF_NAME}"
+          for os in linux windows; do
+            dir="totk-mouse-${tag}-${os}"
+            mkdir -p "pkg/${dir}/mod"
+            cp -r artifacts/mod "pkg/${dir}/mod/totk-mouse"
+            cp artifacts/companion-${os}/* "pkg/${dir}/"
+            cp README.md "pkg/${dir}/"
+            cp companion/LICENSE "pkg/${dir}/LICENSE-companion.txt"
+            cp mod/LICENSE "pkg/${dir}/LICENSE-mod.txt"
+            cp mod/NOTICE "pkg/${dir}/NOTICE-mod.txt"
+          done
+          chmod +x "pkg/totk-mouse-${tag}-linux/totk-mouse"
+          cd pkg
+          tar -czf "totk-mouse-${tag}-linux-x86_64.tar.gz" "totk-mouse-${tag}-linux"
+          zip -qr "totk-mouse-${tag}-windows-x86_64.zip" "totk-mouse-${tag}-windows"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "pkg/totk-mouse-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+            "pkg/totk-mouse-${GITHUB_REF_NAME}-windows-x86_64.zip" \
+            --title "TOTK Mouse ${GITHUB_REF_NAME}" \
+            --generate-notes

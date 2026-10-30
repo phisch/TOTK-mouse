@@ -3,6 +3,8 @@
 
 // Without the window, the parts only it uses are unused.
 #![cfg_attr(not(feature = "ui"), allow(dead_code))]
+// The Windows build with a window should not also open a console.
+#![cfg_attr(all(windows, feature = "ui"), windows_subsystem = "windows")]
 
 mod config;
 mod emulator;
@@ -59,6 +61,15 @@ fn parse_args() -> Args {
 
 fn fail(msg: impl std::fmt::Display) -> ! {
     eprintln!("error: {msg}");
+    // Without a console nobody would see the message.
+    #[cfg(all(windows, feature = "ui"))]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+        let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        let (text, title) = (wide(&msg.to_string()), wide("TOTK Mouse"));
+        // SAFETY: both strings are NUL terminated and outlive the call.
+        unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR) };
+    }
     std::process::exit(1);
 }
 
@@ -81,7 +92,12 @@ fn main() {
     };
 
     let emulator = emulator::find_emulator(args.emulator.as_deref().unwrap_or(&cfg.emulator))
-        .unwrap_or_else(|| fail("no emulator found; set `emulator` in the config or pass --emulator"));
+        .unwrap_or_else(|| {
+            fail(format!(
+                "No emulator found. Put totk-mouse next to the emulator's executable, or set `emulator` in {}.",
+                config::path().display()
+            ))
+        });
     let game = emulator::find_game(args.game.as_deref().unwrap_or(&cfg.game), &emulator);
     match &game {
         Some(g) => println!("game: {}", g.display()),

@@ -39,13 +39,30 @@ the mouse.
 
 ## Usage
 
-1. Build the mod and copy `mod/deploy/totk-mouse` into your emulator's mod folder for
-   TOTK, for example `~/.local/share/eden/load/0100F2C0115B6000/`.
-2. Run the companion from `companion/` with `cargo run --release`. It finds the
-   emulator and the game and starts both.
-3. Load your save. Change bindings and sensitivity in the companion window.
+Download the archive for your system from the
+[latest release](https://github.com/phisch/TOTK-mouse/releases/latest) and extract it.
 
-## Building
+1. **Install the mod.** Copy the `mod/totk-mouse` folder into the emulator's mod folder
+   for TOTK. In Eden or Citron: right-click the game, then "Open Mod Data Location".
+   On Linux that is usually `~/.local/share/eden/load/0100F2C0115B6000/`.
+2. **Start the companion** instead of the emulator. It starts the emulator with the
+   game.
+   - Linux: run `./totk-mouse`. The emulator has to be on your PATH (`eden`,
+     `citron`, ...).
+   - Windows: put `totk-mouse.exe` next to the emulator's executable (for example
+     next to `eden.exe`) and run it.
+
+   If the emulator is somewhere else, set `emulator` in the config file
+   (`~/.config/totk-mouse/config.toml`, or `%APPDATA%\totk-mouse\config.toml` on
+   Windows), which is created on first start.
+3. **Load your save.** The mouse turns the camera once you are in the world. Change
+   bindings and sensitivity in the companion window. Closing it turns mouse support
+   off.
+
+The game is found through the emulator's game folders. If that fails, start it from the
+emulator window.
+
+## Building from source
 
 Mod (Docker):
 
@@ -62,8 +79,9 @@ cd companion
 cargo build --release
 ```
 
-For Windows, `cargo build --release --target x86_64-pc-windows-gnu --no-default-features`
-builds a terminal-only version for now.
+On Windows, `cargo build --release` builds the same with the window. Cross-compiling
+from Linux (`--target x86_64-pc-windows-gnu --no-default-features`) gives a terminal-only
+build, because GPUI needs the Windows shader compiler.
 
 How it works: [docs/how-it-works.md](docs/how-it-works.md).
 
