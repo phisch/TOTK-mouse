@@ -3,6 +3,8 @@ https://github.com/shadowninja108/exlaunch, licensed under the GPL-2.0 (see LICE
 It is based on exlaunch commit f9f4b0dd07b68f97958cb9c79228bbca22ca80d5.
 
 source/rtld is by Thog and carries its own license, see source/rtld/LICENSE.txt.
+source/lib/nx contains parts of libnx (https://github.com/switchbrew/libnx), by the
+libnx authors.
 
 Changes to exlaunch:
 - Makefile: output to deploy/totk-mouse/exefs as subsdk8 (TOTK Optimizer uses subsdk9).
