@@ -12,7 +12,7 @@ gpui = { package = "gpui-unofficial", version = "1.25.3", optional = true }
 gpui_platform = { package = "gpui-platform-gpui-unofficial", version = "1.25.3", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-x11rb = { version = "0.13", features = ["xinput"] }
+x11rb = { version = "0.13", features = ["xinput", "res"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

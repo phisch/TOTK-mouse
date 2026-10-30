@@ -12,6 +12,7 @@
 //! at all, which is why buttons are forwarded through the mod instead.
 
 use x11rb::connection::Connection;
+use x11rb::protocol::res::{self, ConnectionExt as _};
 use x11rb::protocol::xinput::{self, ConnectionExt as _};
 use x11rb::protocol::xproto::*;
 use x11rb::protocol::Event;
@@ -21,6 +22,9 @@ pub struct X11 {
     conn: RustConnection,
     root: Window,
     pid_atom: Atom,
+    /// The X-Resource extension knows which process owns a window even when the
+    /// client sets no _NET_WM_PID (Ryujinx's Avalonia window does not).
+    has_xres: bool,
     cursor: Cursor,
     /// Bound keys: (keycode, name).
     keys: Vec<(u8, String)>,
@@ -96,10 +100,12 @@ impl X11 {
         conn.create_cursor(cursor, pix, pix, 0, 0, 0, 0, 0, 0, 0, 0).map_err(|e| e.to_string())?;
         conn.free_pixmap(pix).map_err(|e| e.to_string())?;
 
+        let has_xres = conn.res_query_version(1, 2).ok().and_then(|c| c.reply().ok()).is_some();
         let mut x = Self {
             conn,
             root,
             pid_atom,
+            has_xres,
             cursor,
             keys: Vec::new(),
             held_keys: Vec::new(),
@@ -125,7 +131,15 @@ impl X11 {
 
     fn window_pid(&self, w: Window) -> Option<u32> {
         let r = self.conn.get_property(false, w, self.pid_atom, AtomEnum::CARDINAL, 0, 1).ok()?.reply().ok()?;
-        r.value32().and_then(|mut v| v.next())
+        if let Some(pid) = r.value32().and_then(|mut v| v.next()) {
+            return Some(pid);
+        }
+        if !self.has_xres {
+            return None;
+        }
+        let spec = res::ClientIdSpec { client: w, mask: res::ClientIdMask::LOCAL_CLIENT_PID };
+        let ids = self.conn.res_query_client_ids(&[spec]).ok()?.reply().ok()?;
+        ids.ids.first().and_then(|id| id.value.first().copied())
     }
 
     fn collect(&self, w: Window, pids: &[u32], out: &mut Vec<Window>) {
