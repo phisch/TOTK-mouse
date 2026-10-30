@@ -29,11 +29,6 @@ const PULSE_QUEUE_MAX: usize = 8;
 /// After a mapped button is let go, keep the grab this long while the camera comes
 /// back from the menu the button opened, instead of flickering the mouse free.
 const HOLD_GRACE: Duration = Duration::from_secs(1);
-/// Motion goes to the mod at most this often. The game reads it once per frame and
-/// the values are running totals, so nothing is lost. Each write is a syscall into
-/// the emulator (under Wine even a ptrace stop), so writing on every mouse event at
-/// 1000 Hz is wasteful.
-const WRITE_EVERY: Duration = Duration::from_millis(4);
 /// How often to re-assert the grab while it should be held. XWayland drops the
 /// confinement when the window loses focus, Windows drops a cursor clip on some
 /// window changes, and re-grabbing restores it.
@@ -324,7 +319,13 @@ pub fn run(mut child: Child, mut backend: Box<dyn Backend>, mut cfg: Config, sha
                 total_x += batch.dx as i64;
                 total_y += batch.dy as i64;
             }
-            if (total_x, total_y) != written && now - last_write >= WRITE_EVERY {
+            // Motion goes to the mod at most every `write_interval_ms`. The game reads
+            // it once per frame and the values are running totals, so nothing is
+            // lost. Each write is a call into the emulator (under Wine a ptrace stop,
+            // on Windows possibly a page protection change), so writing on every
+            // mouse event is wasteful.
+            let write_every = Duration::from_millis(cfg.write_interval_ms.clamp(1, 100));
+            if (total_x, total_y) != written && now - last_write >= write_every {
                 written = (total_x, total_y);
                 last_write = now;
                 b.set_totals(total_x, total_y);

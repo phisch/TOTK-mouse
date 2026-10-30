@@ -22,6 +22,10 @@ pub struct Config {
     pub sensitivity_y: f64,
     pub invert_x: bool,
     pub invert_y: bool,
+    /// Mouse motion goes to the game at most this often, in milliseconds. Each
+    /// write is a call into the emulator's memory; lower is snappier, higher is
+    /// cheaper for the emulator.
+    pub write_interval_ms: u64,
     /// Mouse input (left, right, middle, back, forward, wheel_up, wheel_down) to a
     /// Switch button name or an action, for example `left = "Y"`, `back = "toggle"`.
     pub buttons: BTreeMap<String, String>,
@@ -80,6 +84,7 @@ impl Default for Config {
             sensitivity_y: 0.0006,
             invert_x: false,
             invert_y: false,
+            write_interval_ms: 8,
             buttons: BTreeMap::from([
                 ("left".into(), "Y".into()),
                 ("right".into(), "ZR".into()),
