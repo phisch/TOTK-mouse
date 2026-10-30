@@ -7,7 +7,8 @@
 LOAD_KIND := Module
 
 # Program you're targetting. Used to determine where to deploy your files.
-PROGRAM_ID := 0100801011c3e000
+# The Legend of Zelda: Tears of the Kingdom
+PROGRAM_ID := 0100F2C0115B6000
 
 # Optional path to copy the final ELF to, for convenience.
 ELF_EXTRACT :=
