@@ -107,7 +107,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          # Tags like v0.1.0-alpha.1 are published as pre-releases.
+          pre=""
+          case "${GITHUB_REF_NAME}" in *-*) pre="--prerelease" ;; esac
+          gh release create "${GITHUB_REF_NAME}" $pre \
             "pkg/totk-mouse-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
             "pkg/totk-mouse-${GITHUB_REF_NAME}-windows-x86_64.zip" \
             --title "TOTK Mouse ${GITHUB_REF_NAME}" \

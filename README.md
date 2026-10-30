@@ -40,7 +40,7 @@ the mouse.
 ## Usage
 
 Download the archive for your system from the
-[latest release](https://github.com/phisch/TOTK-mouse/releases/latest) and extract it.
+[releases page](https://github.com/phisch/TOTK-mouse/releases) and extract it.
 
 1. **Install the mod.** Copy the `mod/totk-mouse` folder into the emulator's mod folder
    for TOTK. In Eden or Citron: right-click the game, then "Open Mod Data Location".
