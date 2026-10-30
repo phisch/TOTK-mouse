@@ -62,14 +62,31 @@ pub fn run(shared: Shared, tx: Sender<Command>, session: JoinHandle<()>) {
             window_min_size: Some(size(px(860.), px(600.))),
             ..Default::default()
         };
+        // Quit with the session (the emulator exited), window or not.
+        let s = shared.clone();
+        cx.spawn(async move |cx| loop {
+            cx.background_executor().timer(Duration::from_millis(100)).await;
+            if s.lock().unwrap().finished {
+                let _ = cx.update(|cx| cx.quit());
+                break;
+            }
+        })
+        .detach();
+
         let (s, t) = (shared.clone(), tx.clone());
-        cx.open_window(opts, |window, cx| {
+        let opened = cx.open_window(opts, |window, cx| {
             let view = cx.new(|cx| Companion::new(s, t, cx));
             let focus = view.read(cx).focus.clone();
             window.focus(&focus, cx);
             view
-        })
-        .expect("cannot open the window");
+        });
+        if let Err(e) = opened {
+            // Mouse support does not need the window, so keep going without it.
+            crate::show_error(&format!(
+                "The window could not be opened: {e:#}\n\nMouse support keeps running until the emulator exits."
+            ));
+            return;
+        }
 
         // Closing the window ends the companion, and with it mouse support.
         let tx = tx.clone();
@@ -128,12 +145,7 @@ impl Companion {
     fn new(shared: Shared, tx: Sender<Command>, cx: &mut Context<Self>) -> Self {
         cx.spawn(async move |this, cx| loop {
             cx.background_executor().timer(Duration::from_millis(100)).await;
-            let alive = this.update(cx, |this, cx| {
-                if this.shared.lock().unwrap().finished {
-                    cx.quit();
-                }
-                cx.notify();
-            });
+            let alive = this.update(cx, |_, cx| cx.notify());
             if alive.is_err() {
                 break;
             }

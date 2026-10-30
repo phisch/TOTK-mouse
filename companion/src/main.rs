@@ -59,17 +59,21 @@ fn parse_args() -> Args {
     a
 }
 
-fn fail(msg: impl std::fmt::Display) -> ! {
+/// Reports an error on stderr and, on Windows builds without a console, in a box.
+fn show_error(msg: &str) {
     eprintln!("error: {msg}");
-    // Without a console nobody would see the message.
     #[cfg(all(windows, feature = "ui"))]
     {
         use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
         let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
-        let (text, title) = (wide(&msg.to_string()), wide("TOTK Mouse"));
+        let (text, title) = (wide(msg), wide("TOTK Mouse"));
         // SAFETY: both strings are NUL terminated and outlive the call.
         unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR) };
     }
+}
+
+fn fail(msg: impl std::fmt::Display) -> ! {
+    show_error(&msg.to_string());
     std::process::exit(1);
 }
 
